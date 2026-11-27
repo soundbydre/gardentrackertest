@@ -4958,6 +4958,7 @@ function App() {
     // A sheet that just closed can leave its dismissing tap landing on the nav
     // behind it. Ignore nav taps in that window — a deliberate tap is never this fast.
     if(sheetJustClosed()) return;
+    setShowSeasonSummary(false);
     const formOpen = view==="addCrop" || view==="editCrop";
     const settingsOpenDirty = view==="settings" && settingsDirty;
     if(formOpen) {
@@ -5614,6 +5615,8 @@ function App() {
         </div>
       )}
 
+      {/* ── Middle area: scrollable body, plus the Season Summary panel layered over it ── */}
+      <div style={{flex:1,minHeight:0,position:"relative",display:"flex",flexDirection:"column"}}>
       {/* ── Scrollable body ── */}
       <div style={{flex:1,minHeight:0,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",paddingBottom:"16px"}}>
         <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:"10px"}}>
@@ -5834,42 +5837,23 @@ function App() {
             const finishedNoHarvest=finishedThisYear.filter(c=>!(c.harvests||[]).length).length;
             // Stats for inline card preview
             const hasAnyData=startedThisYear>0||totalWaterings>0||totalFeedings>0||totalHarvestLogs>0;
-            if(!hasAnyData) return null;
+            if(!hasAnyData&&!showSeasonSummary) return null; // keep the panel open even if the chosen year is empty
             const availableYears=[...new Set(crops.map(c=>c.seedDate?.slice(0,4)).filter(Boolean).map(Number))].sort((a,b)=>b-a);
             const currentYear=new Date().getFullYear();
             if(!availableYears.includes(currentYear)) availableYears.unshift(currentYear);
             return(
               <>
-                <button onClick={()=>setShowSeasonSummary(true)} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",padding:"13px 14px",cursor:"pointer",textAlign:"left"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                    <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)"}}>Season Summary · {yr}</div>
-                    <span style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.3)"}}>view all ›</span>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                    <div style={{background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"8px 10px"}}>
-                      <div style={{fontSize:"1.2rem",fontWeight:700,color:"white",lineHeight:1}}>{startedThisYear}</div>
-                      <div style={{fontSize:"0.68rem",color:"rgba(232,245,233,0.4)",marginTop:3}}>Crops started</div>
-                    </div>
-                    <div style={{background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"8px 10px"}}>
-                      <div style={{fontSize:"1.2rem",fontWeight:700,color:"white",lineHeight:1}}>{totalWaterings}</div>
-                      <div style={{fontSize:"0.68rem",color:"rgba(232,245,233,0.4)",marginTop:3}}>Waterings logged</div>
-                    </div>
-                    <div style={{background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"8px 10px"}}>
-                      <div style={{fontSize:"1.2rem",fontWeight:700,color:"white",lineHeight:1}}>{totalFeedings}</div>
-                      <div style={{fontSize:"0.68rem",color:"rgba(232,245,233,0.4)",marginTop:3}}>Feedings logged</div>
-                    </div>
-                    <div style={{background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"8px 10px"}}>
-                      <div style={{fontSize:"1.2rem",fontWeight:700,color:totalHarvestLogs>0?"rgba(134,239,172,0.9)":"white",lineHeight:1}}>{totalHarvestLogs}</div>
-                      <div style={{fontSize:"0.68rem",color:"rgba(232,245,233,0.4)",marginTop:3}}>Harvests logged</div>
-                    </div>
-                  </div>
+                <button onClick={()=>{setSummaryYear(currentYear);setShowSeasonSummary(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",padding:"13px 14px",cursor:"pointer",textAlign:"left"}}>
+                  <span style={{width:34,height:34,borderRadius:"10px",background:"rgba(34,197,94,0.12)",border:"1px solid rgba(34,197,94,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.05rem",flexShrink:0}}>📊</span>
+                  <span style={{flex:1,fontSize:"0.95rem",fontWeight:600,color:"rgba(232,245,233,0.9)"}}>Season Summary</span>
+                  <span style={{color:"rgba(255,255,255,0.3)",fontSize:"1rem"}}>›</span>
                 </button>
 
                 {/* Season Summary: full-screen view */}
                 {showSeasonSummary&&(
-                  <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",flexDirection:"column",background:C.bg,fontFamily:F.sans}}>
+                  <div style={{position:"absolute",inset:0,zIndex:5,display:"flex",flexDirection:"column",background:C.bg,fontFamily:F.sans,borderTop:"1px solid rgba(255,255,255,0.07)"}}>
                     {/* Header: title, year selector, close */}
-                    <div style={{padding:"max(54px,calc(var(--sat, env(safe-area-inset-top, 50px)) + 16px)) 18px 12px",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
+                    <div style={{padding:"12px 14px 10px",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
                       <h1 style={{fontFamily:F.serif,fontSize:"1.4rem",margin:0,color:"white",fontWeight:700,lineHeight:1.1,whiteSpace:"nowrap"}}>Season Summary</h1>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:2,background:"rgba(255,255,255,0.07)",borderRadius:"10px",padding:"3px"}}>
@@ -5881,7 +5865,7 @@ function App() {
                       </div>
                     </div>
 
-                    <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"14px 18px calc(24px + env(safe-area-inset-bottom))"}}>
+                    <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"12px 14px 20px"}}>
                      <div style={{display:"flex",flexDirection:"column",gap:10}}>
                       {/* At a glance */}
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -6086,6 +6070,7 @@ function App() {
           })()}
 
         </div>
+      </div>
       </div>
 
       <div data-nav="true" style={{flexShrink:0,background:C.bg,borderTop:"1px solid rgba(255,255,255,0.07)",paddingBottom:"max(var(--sab, env(safe-area-inset-bottom, 0px)), 8px)",paddingTop:"10px",display:"flex",alignItems:"center",justifyContent:"space-around",zIndex:200,touchAction:"none",userSelect:"none",overscrollBehavior:"none"}}>
