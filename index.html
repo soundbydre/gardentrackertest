@@ -4983,6 +4983,8 @@ function App() {
   const [flatSort,setFlatSort]       = useState("az");
   const [showHarvests,setShowHarvests] = useState(false);
   const [showSeasonSummary,setShowSeasonSummary] = useState(false);
+  const [summaryOpen,setSummaryOpen] = useState({}); // which Season Summary detail sections are expanded
+  const toggleSummarySection=k=>setSummaryOpen(o=>({...o,[k]:!o[k]}));
   const [showArchivedYear,setShowArchivedYear] = useState(null); // year number or null
   const [summaryYear,setSummaryYear] = useState(new Date().getFullYear());
   const [expandedWeatherDay,setExpandedWeatherDay] = useState(null);
@@ -5863,61 +5865,70 @@ function App() {
                   </div>
                 </button>
 
-                {/* Season Summary sheet */}
+                {/* Season Summary: full-screen view */}
                 {showSeasonSummary&&(
-                  <div style={{position:"fixed",inset:0,zIndex:300}}>
-                    <div onClick={()=>setShowSeasonSummary(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.6)"}}/>
-                    <div
-                      onClick={e=>e.stopPropagation()}
-                      style={{position:"absolute",bottom:"calc(max(80px, var(--sab, env(safe-area-inset-bottom, 0px)) + 62px))",left:0,right:0,background:"#1a2b1c",borderRadius:"20px 20px 0 0",paddingBottom:"16px",maxHeight:"calc(100% - max(120px, env(safe-area-inset-top) + 90px) - max(80px, var(--sab, env(safe-area-inset-bottom, 0px)) + 62px))",display:"flex",flexDirection:"column",boxShadow:"0 -8px 30px rgba(0,0,0,0.4)"}}>
-                      {/* Sheet header with year selector */}
-                      <div style={{padding:"16px 18px 14px",flexShrink:0,borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
-                        <div style={{width:36,height:4,borderRadius:2,background:"rgba(255,255,255,0.2)",margin:"0 auto 16px"}}/>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                          <div style={{fontSize:"1.1rem",fontWeight:700,color:"white"}}>Season Summary</div>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            {/* Year selector */}
-                          <div style={{display:"flex",alignItems:"center",gap:2,background:"rgba(255,255,255,0.07)",borderRadius:"10px",padding:"3px"}}>
-                            <button onClick={()=>setSummaryYear(y=>Math.max(y-1,availableYears[availableYears.length-1]))} style={{width:28,height:28,borderRadius:"8px",background:"none",border:"none",color:"rgba(232,245,233,0.5)",cursor:"pointer",fontSize:"1rem",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-                            <span style={{fontSize:"0.9rem",fontWeight:700,color:"white",minWidth:36,textAlign:"center"}}>{summaryYear}</span>
-                            <button onClick={()=>setSummaryYear(y=>Math.min(y+1,currentYear))} disabled={summaryYear>=currentYear} style={{width:28,height:28,borderRadius:"8px",background:"none",border:"none",color:summaryYear>=currentYear?"rgba(232,245,233,0.15)":"rgba(232,245,233,0.5)",cursor:summaryYear>=currentYear?"default":"pointer",fontSize:"1rem",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
-                          </div>
-                          {/* Close button */}
-                          <button onClick={()=>setShowSeasonSummary(false)} style={{width:30,height:30,borderRadius:"50%",background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"rgba(232,245,233,0.5)",fontSize:"1rem",flexShrink:0}}>×</button>
-                          </div>
+                  <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",flexDirection:"column",background:C.bg,fontFamily:F.sans}}>
+                    {/* Header: title, year selector, close */}
+                    <div style={{padding:"max(54px,calc(var(--sat, env(safe-area-inset-top, 50px)) + 16px)) 18px 12px",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
+                      <h1 style={{fontFamily:F.serif,fontSize:"1.4rem",margin:0,color:"white",fontWeight:700,lineHeight:1.1,whiteSpace:"nowrap"}}>Season Summary</h1>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:2,background:"rgba(255,255,255,0.07)",borderRadius:"10px",padding:"3px"}}>
+                          <button aria-label="Previous year" onClick={()=>setSummaryYear(y=>Math.max(y-1,availableYears[availableYears.length-1]))} style={{width:30,height:30,borderRadius:"8px",background:"none",border:"none",color:"rgba(232,245,233,0.6)",cursor:"pointer",fontSize:"1.05rem"}}>‹</button>
+                          <span style={{fontSize:"0.95rem",fontWeight:700,color:"white",minWidth:40,textAlign:"center"}}>{summaryYear}</span>
+                          <button aria-label="Next year" onClick={()=>setSummaryYear(y=>Math.min(y+1,currentYear))} disabled={summaryYear>=currentYear} style={{width:30,height:30,borderRadius:"8px",background:"none",border:"none",color:summaryYear>=currentYear?"rgba(232,245,233,0.15)":"rgba(232,245,233,0.6)",cursor:summaryYear>=currentYear?"default":"pointer",fontSize:"1.05rem"}}>›</button>
                         </div>
+                        <button aria-label="Close" onClick={()=>setShowSeasonSummary(false)} style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"rgba(232,245,233,0.8)",fontSize:"1.25rem",lineHeight:1}}>×</button>
                       </div>
+                    </div>
 
-                      <div style={{flex:1,overflowY:"auto",padding:"14px 18px 16px",display:"flex",flexDirection:"column",gap:14}}>
-
-                        {/* Overview stats */}
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                          {[
-                            {label:"Crops started",val:startedThisYear,color:"white"},
-                            {label:"Crops lost",val:lostThisYear,color:lostThisYear>0?"#f87171":"white"},
-                            {label:"Waterings",val:totalWaterings,color:"white"},
-                            {label:"Feedings",val:totalFeedings,color:"white"},
-                            {label:"Rain days",val:totalRainDays,color:totalRainDays>0?"#93c5fd":"white"},
-                            {label:"Harvests",val:totalHarvestLogs,color:totalHarvestLogs>0?"rgba(134,239,172,0.9)":"white"},
-                          ].map((s,i)=>(
-                            <div key={i} style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"10px 12px"}}>
-                              <div style={{fontSize:"1.4rem",fontWeight:700,color:s.color,lineHeight:1}}>{s.val}</div>
-                              <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.4)",marginTop:4}}>{s.label}</div>
-                            </div>
-                          ))}
+                    <div style={{flex:1,minHeight:0,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"14px 18px calc(24px + env(safe-area-inset-bottom))"}}>
+                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {/* At a glance */}
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                              <div style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"11px 12px"}}>
+                                <div style={{fontSize:"1.5rem",fontWeight:700,color:"white",lineHeight:1}}>{startedThisYear}</div>
+                                <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.45)",marginTop:4}}>Crops started{stillGrowing>0&&<> · {stillGrowing} still growing</>}</div>
+                              </div>
+                              <div style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"11px 12px"}}>
+                                <div style={{fontSize:"1.5rem",fontWeight:700,color:madeItPct!==null&&madeItPct>=80?"rgba(134,239,172,0.95)":"white",lineHeight:1}}>{madeItPct===null?"–":madeItPct+"%"}</div>
+                                <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.45)",marginTop:4}}>Made it</div>
+                              </div>
+                              <div style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"11px 12px"}}>
+                                <div style={{fontSize:"1.5rem",fontWeight:700,color:totalHarvestLogs>0?"rgba(134,239,172,0.9)":"white",lineHeight:1}}>{totalHarvestLogs}</div>
+                                <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.45)",marginTop:4}}>Harvests logged</div>
+                              </div>
+                              <div style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"11px 12px"}}>
+                                <div style={{fontSize:"1.5rem",fontWeight:700,color:lostThisYear>0?"#f87171":"white",lineHeight:1}}>{lostThisYear}</div>
+                                <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.45)",marginTop:4}}>Crops lost</div>
+                              </div>
+                      </div>
+                      <div style={{background:"rgba(255,255,255,0.04)",borderRadius:"12px",padding:"10px 6px 9px"}}>
+                        <div style={{display:"flex"}}>
+                                <div style={{flex:1,textAlign:"center"}}><div style={{fontSize:"1rem",fontWeight:700,color:"rgba(232,245,233,0.85)"}}>💧 {totalWaterings}</div><div style={{fontSize:"0.66rem",color:"rgba(232,245,233,0.4)",marginTop:2}}>Waterings</div></div>
+                                <div style={{flex:1,textAlign:"center"}}><div style={{fontSize:"1rem",fontWeight:700,color:"rgba(232,245,233,0.85)"}}>🌧 {totalRainDays}</div><div style={{fontSize:"0.66rem",color:"rgba(232,245,233,0.4)",marginTop:2}}>Rain days</div></div>
+                                <div style={{flex:1,textAlign:"center"}}><div style={{fontSize:"1rem",fontWeight:700,color:"rgba(232,245,233,0.85)"}}>🧪 {totalFeedings}</div><div style={{fontSize:"0.66rem",color:"rgba(232,245,233,0.4)",marginTop:2}}>Feedings</div></div>
                         </div>
-
-                        {/* Season at a glance */}
-                        {startedList.length>0&&(
-                          <div style={{fontSize:"0.84rem",color:"rgba(232,245,233,0.65)",lineHeight:1.5,background:"rgba(34,197,94,0.07)",border:"1px solid rgba(34,197,94,0.15)",borderRadius:"12px",padding:"10px 13px"}}>
-                            {madeItPct!==null&&<><span style={{fontWeight:700,color:"rgba(134,239,172,0.9)"}}>{madeItPct}%</span> of the {startedList.length} crops you started made it. </>}
-                            {stillGrowing>0&&<>{stillGrowing} {stillGrowing===1?"is":"are"} still growing.</>}
+                        {(peakWaterMonth!==null||topNutrients.length>0)&&(
+                          <div style={{fontSize:"0.7rem",color:"rgba(232,245,233,0.4)",textAlign:"center",marginTop:7,lineHeight:1.4}}>
+                            {peakWaterMonth!==null&&<>Busiest watering month: {MONTHS[peakWaterMonth]}</>}
+                            {peakWaterMonth!==null&&topNutrients.length>0&&" · "}
+                            {topNutrients.length>0&&<>Mostly {topNutrients.map(n=>n.name).join(" and ")}</>}
                           </div>
                         )}
+                      </div>
 
-                        {wentWell.length>0&&(
-                          <div>
-                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>What went well</div>
+                      {/* Detail sections: collapsed by default, tap to expand */}
+                        {(wentWell.length>0)&&(
+                          <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",overflow:"hidden"}}>
+                            <button onClick={()=>toggleSummarySection("well")} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                              <span style={{fontSize:"0.9rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>What went well</span>
+                              <span style={{display:"flex",alignItems:"center",gap:8}}>
+                                {(wentWell.length)>0&&<span style={{fontSize:"0.75rem",fontWeight:700,color:"rgba(134,239,172,0.75)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{wentWell.length}</span>}
+                                <span style={{color:"rgba(255,255,255,0.35)",fontSize:"0.8rem",display:"inline-block",transform:summaryOpen["well"]?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
+                              </span>
+                            </button>
+                            {summaryOpen["well"]&&(
+                              <div style={{padding:"0 12px 12px"}}>
                             <div style={{display:"flex",flexDirection:"column",gap:6}}>
                               {wentWell.map((r,i)=>(
                                 <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",borderLeft:"3px solid rgba(134,239,172,0.55)"}}>
@@ -5930,28 +5941,22 @@ function App() {
                                 </div>
                               ))}
                             </div>
+
+                              </div>
+                            )}
                           </div>
                         )}
-                        {lostRows.length>0&&(
-                          <div>
-                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Lost this year</div>
-                            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                              {lostRows.map((r,i)=>(
-                                <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",borderLeft:"3px solid #f87171"}}>
-                                  <div style={{fontSize:"1rem",flexShrink:0,lineHeight:1.3}}>{cropEmoji(r.c)}</div>
-                                  <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:"0.84rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>{r.label}{r.n>1&&<span style={{fontWeight:500,color:"rgba(232,245,233,0.4)"}}> ×{r.n}</span>}</div>
-                                    {r.text&&<div style={{fontSize:"0.78rem",color:"rgba(232,245,233,0.55)",fontStyle:"italic",marginTop:2,lineHeight:1.4}}>"{r.text}"</div>}
-                                    {r.sub&&<div style={{fontSize:"0.7rem",color:"rgba(232,245,233,0.3)",marginTop:2}}>{r.sub}</div>}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {lessons.length>0&&(
-                          <div>
-                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Notes for next season</div>
+                        {(lessons.length>0)&&(
+                          <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",overflow:"hidden"}}>
+                            <button onClick={()=>toggleSummarySection("lessons")} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                              <span style={{fontSize:"0.9rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>Notes for next season</span>
+                              <span style={{display:"flex",alignItems:"center",gap:8}}>
+                                {(lessons.length)>0&&<span style={{fontSize:"0.75rem",fontWeight:700,color:"rgba(134,239,172,0.75)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{lessons.length}</span>}
+                                <span style={{color:"rgba(255,255,255,0.35)",fontSize:"0.8rem",display:"inline-block",transform:summaryOpen["lessons"]?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
+                              </span>
+                            </button>
+                            {summaryOpen["lessons"]&&(
+                              <div style={{padding:"0 12px 12px"}}>
                             <div style={{display:"flex",flexDirection:"column",gap:6}}>
                               {lessons.map((r,i)=>(
                                 <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",borderLeft:"3px solid #fbbf24"}}>
@@ -5964,27 +5969,50 @@ function App() {
                                 </div>
                               ))}
                             </div>
+
+                              </div>
+                            )}
                           </div>
                         )}
+                        {(lostRows.length>0)&&(
+                          <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",overflow:"hidden"}}>
+                            <button onClick={()=>toggleSummarySection("lost")} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                              <span style={{fontSize:"0.9rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>Lost this year</span>
+                              <span style={{display:"flex",alignItems:"center",gap:8}}>
+                                {(lostRows.length)>0&&<span style={{fontSize:"0.75rem",fontWeight:700,color:"rgba(134,239,172,0.75)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{lostRows.length}</span>}
+                                <span style={{color:"rgba(255,255,255,0.35)",fontSize:"0.8rem",display:"inline-block",transform:summaryOpen["lost"]?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
+                              </span>
+                            </button>
+                            {summaryOpen["lost"]&&(
+                              <div style={{padding:"0 12px 12px"}}>
+                            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                              {lostRows.map((r,i)=>(
+                                <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",borderLeft:"3px solid #f87171"}}>
+                                  <div style={{fontSize:"1rem",flexShrink:0,lineHeight:1.3}}>{cropEmoji(r.c)}</div>
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:"0.84rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>{r.label}{r.n>1&&<span style={{fontWeight:500,color:"rgba(232,245,233,0.4)"}}> ×{r.n}</span>}</div>
+                                    {r.text&&<div style={{fontSize:"0.78rem",color:"rgba(232,245,233,0.55)",fontStyle:"italic",marginTop:2,lineHeight:1.4}}>"{r.text}"</div>}
+                                    {r.sub&&<div style={{fontSize:"0.7rem",color:"rgba(232,245,233,0.3)",marginTop:2}}>{r.sub}</div>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
 
-                        {/* View archived crops for this year */}
-                        {archivedThisYear.length>0&&(
-                          <button onClick={()=>setShowArchivedYear(summaryYear)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"12px",padding:"12px 14px",cursor:"pointer"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <span style={{fontSize:"1.1rem"}}>🗄</span>
-                              <span style={{fontSize:"0.88rem",fontWeight:600,color:"rgba(232,245,233,0.85)"}}>View archived crops</span>
-                            </div>
-                            <div style={{display:"flex",alignItems:"center",gap:6}}>
-                              <span style={{fontSize:"0.78rem",fontWeight:700,color:"rgba(134,239,172,0.7)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{archivedThisYear.length}</span>
-                              <span style={{color:"rgba(255,255,255,0.25)",fontSize:"0.9rem"}}>›</span>
-                            </div>
-                          </button>
+                              </div>
+                            )}
+                          </div>
                         )}
-
-                        {/* Harvest breakdown */}
-                        {harvestRows.length>0&&(
-                          <div>
-                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Harvest breakdown</div>
+                        {(harvestRows.length>0||finishedNoHarvest>0)&&(
+                          <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",overflow:"hidden"}}>
+                            <button onClick={()=>toggleSummarySection("harvest")} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                              <span style={{fontSize:"0.9rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>Harvest breakdown</span>
+                              <span style={{display:"flex",alignItems:"center",gap:8}}>
+                                {(harvestRows.length)>0&&<span style={{fontSize:"0.75rem",fontWeight:700,color:"rgba(134,239,172,0.75)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{harvestRows.length}</span>}
+                                <span style={{color:"rgba(255,255,255,0.35)",fontSize:"0.8rem",display:"inline-block",transform:summaryOpen["harvest"]?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
+                              </span>
+                            </button>
+                            {summaryOpen["harvest"]&&(
+                              <div style={{padding:"0 12px 12px"}}>
                             <div style={{display:"flex",flexDirection:"column",gap:7}}>
                               {harvestRows.map((r,i)=>(
                                 <div key={i} style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"11px 13px",display:"flex",alignItems:"center",gap:11}}>
@@ -6000,30 +6028,22 @@ function App() {
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        )}
-
-                        {/* Care highlights */}
-                        {(totalWaterings>0||totalFeedings>0||totalRainDays>0)&&(
-                          <div>
-                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Care highlights</div>
-                            <div style={{display:"flex",flexDirection:"column",gap:5,fontSize:"0.82rem",color:"rgba(232,245,233,0.7)",background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"10px 12px",lineHeight:1.45}}>
-                              {totalWaterings>0&&<div>💧 {totalWaterings} hand waterings{peakWaterMonth!==null&&<>, busiest in {MONTHS[peakWaterMonth]} ({waterByMonth[peakWaterMonth]})</>}</div>}
-                              {totalRainDays>0&&<div>🌧 Rain covered {totalRainDays} day{totalRainDays!==1?"s":""}</div>}
-                              {totalFeedings>0&&<div>🧪 {totalFeedings} feedings{topNutrients.length>0&&<>, mostly {topNutrients.map(n=>n.name).join(" and ")}</>}</div>}
-                            </div>
-                            {finishedNoHarvest>0&&(
-                              <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.35)",marginTop:6,lineHeight:1.4}}>
-                                {finishedNoHarvest} of {finishedThisYear.length} crops finished this year have no harvests logged. Logging harvests makes this summary more complete.
+                                {finishedNoHarvest>0&&<div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.35)",marginTop:8,lineHeight:1.4}}>{finishedNoHarvest} of {finishedThisYear.length} crops finished this year have no harvests logged.</div>}
                               </div>
                             )}
                           </div>
                         )}
-
-                        {/* Crops started this year */}
-                        {startedThisYear>0&&(
-                          <div>
-                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Crops started</div>
+                        {(startedThisYear>0)&&(
+                          <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",overflow:"hidden"}}>
+                            <button onClick={()=>toggleSummarySection("started")} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                              <span style={{fontSize:"0.9rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>Crops started</span>
+                              <span style={{display:"flex",alignItems:"center",gap:8}}>
+                                {(startedThisYear)>0&&<span style={{fontSize:"0.75rem",fontWeight:700,color:"rgba(134,239,172,0.75)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{startedThisYear}</span>}
+                                <span style={{color:"rgba(255,255,255,0.35)",fontSize:"0.8rem",display:"inline-block",transform:summaryOpen["started"]?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
+                              </span>
+                            </button>
+                            {summaryOpen["started"]&&(
+                              <div style={{padding:"0 12px 12px"}}>
                             <div style={{display:"flex",flexDirection:"column",gap:6}}>
                               {crops.filter(c=>c.seedDate&&inYear(c.seedDate)).sort((a,b)=>(a.seedDate||"").localeCompare(b.seedDate||"")).map((c,i)=>{
                                 const acc=cropAccent(c);
@@ -6039,10 +6059,25 @@ function App() {
                                 );
                               })}
                             </div>
+
+                              </div>
+                            )}
                           </div>
                         )}
 
-                      </div>
+                        {archivedThisYear.length>0&&(
+                          <button onClick={()=>setShowArchivedYear(summaryYear)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"12px",padding:"12px 14px",cursor:"pointer"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <span style={{fontSize:"1.1rem"}}>🗄</span>
+                              <span style={{fontSize:"0.88rem",fontWeight:600,color:"rgba(232,245,233,0.85)"}}>View archived crops</span>
+                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{fontSize:"0.78rem",fontWeight:700,color:"rgba(134,239,172,0.7)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{archivedThisYear.length}</span>
+                              <span style={{color:"rgba(255,255,255,0.25)",fontSize:"0.9rem"}}>›</span>
+                            </div>
+                          </button>
+                        )}
+                     </div>
                     </div>
                   </div>
                 )}
