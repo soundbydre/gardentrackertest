@@ -996,7 +996,7 @@ function Wizard({onComplete,onImportV1FromWizard}) {
               try{
                 const d=JSON.parse(ev.target.result);
                 if(d.crops&&d.settings&&d.locations) onImportV1FromWizard(d);
-                else alert("This doesn't look like a V1 backup file.");
+                else alert("This doesn't look like a Garden Tracker backup file.");
               }catch(err){alert("Invalid file — couldn't parse JSON.");}
             };
             r.readAsText(f);e.target.value="";
@@ -1101,7 +1101,7 @@ function Wizard({onComplete,onImportV1FromWizard}) {
 
 
 
-function SettingsPanel({show,settings,locations,locationMeta,crops,user,syncing,onSave,onSignOut,onClose,onExport,onImport,onImportV1,onDirtyChange}) {
+function SettingsPanel({show,settings,locations,locationMeta,crops,user,syncing,onSave,onSignOut,onClose,onExport,onImport,onDirtyChange}) {
   const [name,setName]=useState(settings?.gardenName||"");
   const [zip,setZip]=useState(settings?.zip||"");
   const [zone,setZone]=useState(settings?.zone||"");
@@ -1310,10 +1310,7 @@ function SettingsPanel({show,settings,locations,locationMeta,crops,user,syncing,
                 <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.crops&&d.settings)onImport(d);}catch(err){alert("Invalid backup file");}};r.readAsText(f);e.target.value="";}}/>
               </label>
             </div>
-            <label style={{display:"block",width:"100%",background:"rgba(251,191,36,0.08)",border:"1px solid rgba(251,191,36,0.2)",borderRadius:"10px",padding:"10px",fontSize:"0.82rem",fontWeight:700,color:"#fbbf24",cursor:"pointer",textAlign:"center",marginBottom:8}}>
-              ⬆ Import from V1 (Convert)
-              <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.crops&&d.settings&&d.locations)onImportV1(d);else alert("This doesn't look like a V1 backup file.");}catch(err){alert("Invalid file — couldn't parse JSON.");}};r.readAsText(f);e.target.value="";}}/>
-            </label>
+            {(()=>{try{return !!localStorage.getItem(`${LS_NS}snapshot:${user.id}`);}catch(e){return false;}})()&&(
             <button onClick={()=>{
               try{
                 const snap=localStorage.getItem(`${LS_NS}snapshot:${user.id}`);
@@ -1321,14 +1318,15 @@ function SettingsPanel({show,settings,locations,locationMeta,crops,user,syncing,
                 const d=JSON.parse(snap);
                 const savedAt=new Date(d.savedAt).toLocaleString();
                 const cropCount=d.payload?.crops?.length||0;
-                if(window.confirm(`Restore auto-snapshot from ${savedAt}?\n${cropCount} crops found.\n\nThis will replace your current data.`)){
+                if(window.confirm(`Undo your last import?\n\nThis puts back the garden as it was on ${savedAt} (${cropCount} crops), replacing what's there now.`)){
                   onImport(d.payload);
                 }
               }catch(e){alert("Snapshot restore failed.");}
             }} style={{width:"100%",background:"rgba(251,191,36,0.08)",border:"1px solid rgba(251,191,36,0.2)",borderRadius:"10px",padding:"10px",fontSize:"0.82rem",fontWeight:700,color:"#fbbf24",cursor:"pointer",marginBottom:8}}>
-              🔄 Restore Auto-Snapshot
+              ↩ Undo Last Import
             </button>
-            <div style={{fontSize:"0.68rem",color:"rgba(232,245,233,0.25)",lineHeight:1.5}}>Export saves all your crops to a JSON file. Auto-snapshots are saved automatically after each successful sync.</div>
+            )}
+            <div style={{fontSize:"0.68rem",color:"rgba(232,245,233,0.25)",lineHeight:1.5}}>Export saves your whole garden to a file. Import replaces this garden with a backup file. Before each import, this device keeps a copy of your garden so you can undo it.</div>
           </div>
           )}
 
@@ -5018,7 +5016,7 @@ function App() {
       return;
     }
     // (b) Save a recovery snapshot of the CURRENT garden before the destructive phase.
-    // Uses the same {savedAt,payload} shape + key that "Restore Auto-Snapshot" reads,
+    // Uses the same {savedAt,payload} shape + key that "Undo Last Import" in Settings reads,
     // so a failed/partial import can be rolled back from Settings.
     try{
       const preImportPayload={version:2,exportedAt:new Date().toISOString(),settings,locations,locationMeta,crops,todos,nutrients,cropNames,varieties,containerSizes};
@@ -5028,7 +5026,7 @@ function App() {
     overlay.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(14,21,14,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:Figtree,sans-serif;";
     const titleEl=document.createElement("div");
     titleEl.style.cssText="color:#4ade80;font-size:1.1rem;font-weight:700;";
-    titleEl.textContent="Importing V1 Data…";
+    titleEl.textContent="Restoring backup…";
     const statusEl=document.createElement("div");
     statusEl.style.cssText="color:rgba(232,245,233,0.7);font-size:0.85rem;max-width:280px;text-align:center;";
     overlay.appendChild(titleEl);overlay.appendChild(statusEl);
@@ -5081,6 +5079,7 @@ function App() {
           days_to_maturity:c.daysToMaturity?Number(c.daysToMaturity):null,
           succession_days:c.successionDays?Number(c.successionDays):null,
           color:c.color||null,archived:c.archived||false,final_note:c.finalNote||null,
+          icon:c.icon||null,label:c.label||null,
         }).select().single();
         if(cropErr||!cropRow){console.error("crop insert error",cropErr);continue;}
         const cropId=cropRow.id;
@@ -5088,7 +5087,7 @@ function App() {
         // Stage history
         const sh=c.stageHistory||[];
         for(const s of sh){
-          await sb.from('stage_history').insert({crop_id:cropId,stage:s.stage,date:s.date||c.seedDate,in_container:c.inContainer||false,container_size:c.containerSize||null,location_id:locId,is_transplant:false});
+          await sb.from('stage_history').insert({crop_id:cropId,stage:s.stage,date:s.date||c.seedDate,in_container:s.inContainer??c.inContainer??false,container_size:s.containerSize??c.containerSize??null,location_id:locId,is_transplant:!!s.transplant});
         }
         if(sh.length===0&&c.seedDate){
           await sb.from('stage_history').insert({crop_id:cropId,stage:c.stage||"Seed",date:c.seedDate,in_container:c.inContainer||false,container_size:c.containerSize||null,location_id:locId,is_transplant:false});
@@ -5143,7 +5142,7 @@ function App() {
     }catch(err){
       console.error("V1 import error:",err);
       if(overlay.parentNode) document.body.removeChild(overlay);
-      alert("Import failed: "+err.message+"\n\nYour previous data may have been partially cleared. A snapshot of your garden was saved just before this import — you can recover it from Settings → Restore Auto-Snapshot.");
+      alert("Import failed: "+err.message+"\n\nYour previous data may have been partially cleared. A snapshot of your garden was saved just before this import — you can recover it from Settings → Undo Last Import.");
     }
   };
 
@@ -5861,7 +5860,6 @@ function App() {
                           <span style={{fontSize:"0.95rem",fontWeight:700,color:"white",minWidth:40,textAlign:"center"}}>{summaryYear}</span>
                           <button aria-label="Next year" onClick={()=>setSummaryYear(y=>Math.min(y+1,currentYear))} disabled={summaryYear>=currentYear} style={{width:30,height:30,borderRadius:"8px",background:"none",border:"none",color:summaryYear>=currentYear?"rgba(232,245,233,0.15)":"rgba(232,245,233,0.6)",cursor:summaryYear>=currentYear?"default":"pointer",fontSize:"1.05rem"}}>›</button>
                         </div>
-                        <button aria-label="Close" onClick={()=>setShowSeasonSummary(false)} style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"rgba(232,245,233,0.8)",fontSize:"1.25rem",lineHeight:1}}>×</button>
                       </div>
                     </div>
 
@@ -6298,11 +6296,6 @@ function App() {
         }}
         onImport={async(data)=>{
           if(!window.confirm(`Restore backup with ${data.crops?.length||0} crops?\n\nThis will REPLACE all current crops, locations, and todos. This cannot be undone.`)) return;
-          if(!gardenId){alert("No active garden found.");return;}
-          runV1Import(data,gardenId,user.id);
-        }}
-        onImportV1={async(data)=>{
-          if(!window.confirm(`Import ${data.crops?.length||0} crops from V1 backup?\n\nThis will REPLACE all current crops, locations, and todos. This cannot be undone.`)) return;
           if(!gardenId){alert("No active garden found.");return;}
           runV1Import(data,gardenId,user.id);
         }}/>
