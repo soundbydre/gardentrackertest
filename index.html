@@ -5772,7 +5772,19 @@ function App() {
             const yearCrops=crops.filter(c=>c.seedDate&&c.seedDate.startsWith(`${yr}-`)||
               (c.seedDate&&c.seedDate<`${yr+1}-01-01`&&(!c.archived||(c.stageHistory||[]).some(s=>s.date&&s.date.startsWith(`${yr}-`)))));
             const activeDuringYear=crops.filter(c=>c.seedDate&&c.seedDate<`${yr+1}-01-01`);
-            const startedThisYear=crops.filter(c=>c.seedDate&&inYear(c.seedDate)).length;
+            // A crop belongs to every year it was growing: from its start date until it was
+            // finished (its last logged activity) — or through today if it's still active.
+            // So garlic planted in October counts in that year and the next.
+            const lastActivity=c=>[c.seedDate,...(c.stageHistory||[]).map(x=>x.date),...(c.waterLog||[]).map(x=>x.date),
+              ...(c.feedLog||[]).map(x=>x.date),...(c.harvests||[]).map(x=>x.date),...(c.notes||[]).map(x=>x.date)]
+              .filter(Boolean).map(d=>String(d).slice(0,10)).sort().pop();
+            const grewInYear=c=>{
+              if(!c.seedDate||c.seedDate.slice(0,10)>`${yr}-12-31`) return false;
+              if(!c.archived) return true;
+              return (lastActivity(c)||c.seedDate.slice(0,10))>=`${yr}-01-01`;
+            };
+            const grownList=crops.filter(grewInYear).sort((a,b)=>(a.seedDate||"").localeCompare(b.seedDate||""));
+            const startedThisYear=grownList.length;
             // Lost crops: by the Lost stage date, or by start date when no Lost stage entry was recorded
             const isLostThisYear=c=>c.stage==="Lost"&&((c.stageHistory||[]).some(s=>s.stage==="Lost")
               ?(c.stageHistory||[]).some(s=>s.stage==="Lost"&&inYear(s.date))
@@ -5805,10 +5817,9 @@ function App() {
             const harvestRows=Object.values(harvestByKey).sort((a,b)=>b.total-a.total);
             const totalHarvestLogs=harvestRows.reduce((n,r)=>n+r.count,0);
             // ── Rule-based recap (no AI): pulls highlights and lessons from end-of-crop notes ──
-            const startedList=crops.filter(c=>c.seedDate&&inYear(c.seedDate));
-            const stillGrowing=startedList.filter(c=>!c.archived).length;
-            const lostOfStarted=startedList.filter(c=>c.stage==="Lost").length;
-            const madeItPct=startedList.length?Math.round(100*(1-lostOfStarted/startedList.length)):null;
+            const startedList=grownList;
+            const stillGrowing=grownList.filter(c=>!c.archived).length;
+            const madeItPct=grownList.length?Math.round(100*(1-Math.min(lostThisYear,grownList.length)/grownList.length)):null;
             const cropLabel=c=>c.variety?`${c.name} (${c.variety})`:c.name;
             const sentences=t=>(t||"").replace(/\s+/g," ").trim().split(/(?<=[.!?])\s+/).filter(Boolean);
             const clip=t=>t.length>170?t.slice(0,167).trimEnd()+"…":t;
@@ -5869,7 +5880,7 @@ function App() {
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                               <div style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"11px 12px"}}>
                                 <div style={{fontSize:"1.5rem",fontWeight:700,color:"white",lineHeight:1}}>{startedThisYear}</div>
-                                <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.45)",marginTop:4}}>Crops started{stillGrowing>0&&<> · {stillGrowing} still growing</>}</div>
+                                <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.45)",marginTop:4}}>Crops{stillGrowing>0&&<> · {stillGrowing} still growing</>}</div>
                               </div>
                               <div style={{background:"rgba(255,255,255,0.05)",borderRadius:"12px",padding:"11px 12px"}}>
                                 <div style={{fontSize:"1.5rem",fontWeight:700,color:madeItPct!==null&&madeItPct>=80?"rgba(134,239,172,0.95)":"white",lineHeight:1}}>{madeItPct===null?"–":madeItPct+"%"}</div>
@@ -6018,7 +6029,7 @@ function App() {
                         {(startedThisYear>0)&&(
                           <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"14px",overflow:"hidden"}}>
                             <button onClick={()=>toggleSummarySection("started")} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
-                              <span style={{fontSize:"0.9rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>Crops started</span>
+                              <span style={{fontSize:"0.9rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>Crops this season</span>
                               <span style={{display:"flex",alignItems:"center",gap:8}}>
                                 {(startedThisYear)>0&&<span style={{fontSize:"0.75rem",fontWeight:700,color:"rgba(134,239,172,0.75)",background:"rgba(34,197,94,0.12)",padding:"2px 9px",borderRadius:"10px"}}>{startedThisYear}</span>}
                                 <span style={{color:"rgba(255,255,255,0.35)",fontSize:"0.8rem",display:"inline-block",transform:summaryOpen["started"]?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
@@ -6027,7 +6038,7 @@ function App() {
                             {summaryOpen["started"]&&(
                               <div style={{padding:"0 12px 12px"}}>
                             <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                              {crops.filter(c=>c.seedDate&&inYear(c.seedDate)).sort((a,b)=>(a.seedDate||"").localeCompare(b.seedDate||"")).map((c,i)=>{
+                              {grownList.map((c,i)=>{
                                 const acc=cropAccent(c);
                                 return(
                                   <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px"}}>
