@@ -1319,7 +1319,7 @@ function SettingsPanel({show,settings,locations,locationMeta,crops,user,syncing,
                 const savedAt=new Date(d.savedAt).toLocaleString();
                 const cropCount=d.payload?.crops?.length||0;
                 if(window.confirm(`Undo your last import?\n\nThis puts back the garden as it was on ${savedAt} (${cropCount} crops), replacing what's there now.`)){
-                  onImport(d.payload);
+                  onImport(d.payload,{alreadyConfirmed:true}); // the undo prompt above is the only confirmation
                 }
               }catch(e){alert("Snapshot restore failed.");}
             }} style={{width:"100%",background:"rgba(251,191,36,0.08)",border:"1px solid rgba(251,191,36,0.2)",borderRadius:"10px",padding:"10px",fontSize:"0.82rem",fontWeight:700,color:"#fbbf24",cursor:"pointer",marginBottom:8}}>
@@ -6294,8 +6294,8 @@ function App() {
           a.click();
           URL.revokeObjectURL(url);
         }}
-        onImport={async(data)=>{
-          if(!window.confirm(`Restore backup with ${data.crops?.length||0} crops?\n\nThis will REPLACE all current crops, locations, and todos. This cannot be undone.`)) return;
+        onImport={async(data,opts={})=>{
+          if(!opts.alreadyConfirmed&&!window.confirm(`Restore backup with ${data.crops?.length||0} crops?\n\nThis will REPLACE all current crops, locations, and todos. If you change your mind, use Undo Last Import in Settings on this device.`)) return;
           if(!gardenId){alert("No active garden found.");return;}
           runV1Import(data,gardenId,user.id);
         }}/>
