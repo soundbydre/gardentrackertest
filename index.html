@@ -160,8 +160,19 @@ function useKeyboardInset() {
 
 
 // ── Supabase ────────────────────────────────────────────────────
-const SUPABASE_URL = "https://rqhubsgsifmgbsadzrsi.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxaHVic2dzaWZtZ2JzYWR6cnNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDg1MjAsImV4cCI6MjA5NDM4NDUyMH0.NUcspYWYgxjPF7-p3ExzfLk6Gn6NOuvXzg18AJCeiI4";
+// Live site = soundbydre.github.io/gardentrackerv2/ ; anywhere else (test repo, localhost) uses the TEST database.
+const IS_TEST = !(location.hostname === "soundbydre.github.io" && location.pathname.startsWith("/gardentrackerv2/"));
+const SUPABASE_URL = IS_TEST ? "https://ypcsejapypjkrmismasq.supabase.co" : "https://rqhubsgsifmgbsadzrsi.supabase.co";
+const SUPABASE_KEY = IS_TEST ? "sb_publishable_CTq6MJC1qun_vtfvTincng_8HFvJHN8" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxaHVic2dzaWZtZ2JzYWR6cnNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDg1MjAsImV4cCI6MjA5NDM4NDUyMH0.NUcspYWYgxjPF7-p3ExzfLk6Gn6NOuvXzg18AJCeiI4";
+const LS_NS = IS_TEST ? "garden-test:" : "garden:"; // keeps test and live saved data apart in the browser
+if (IS_TEST) {
+  document.title = "Garden Tracker TEST";
+  document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", "GT Test");
+  const b = document.createElement("div");
+  b.textContent = "TEST";
+  b.style.cssText = "position:fixed;top:calc(env(safe-area-inset-top) + 4px);left:50%;transform:translateX(-50%);z-index:99999;background:#e0457b;color:#fff;font:700 11px Figtree,sans-serif;padding:2px 10px;border-radius:10px;pointer-events:none;letter-spacing:1px";
+  document.body.appendChild(b);
+}
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── v2 Direct-write DB layer ────────────────────────────────────
@@ -1305,7 +1316,7 @@ function SettingsPanel({show,settings,locations,locationMeta,crops,user,syncing,
             </label>
             <button onClick={()=>{
               try{
-                const snap=localStorage.getItem(`garden:snapshot:${user.id}`);
+                const snap=localStorage.getItem(`${LS_NS}snapshot:${user.id}`);
                 if(!snap){alert("No auto-snapshot found.");return;}
                 const d=JSON.parse(snap);
                 const savedAt=new Date(d.savedAt).toLocaleString();
@@ -4962,7 +4973,7 @@ function App() {
   const navigate = (v) => { setPrevView(view); setView(v); };
   const [selLoc,setSelLoc]         = useState(null);
   const [selLocSheet,setSelLocSheet] = useState(null);
-  const [density,setDensity]       = useState(()=>localStorage.getItem("garden:density")||"comfortable");
+  const [density,setDensity]       = useState(()=>localStorage.getItem(LS_NS+"density")||"comfortable");
   const [dashFeedCrop,setDashFeedCrop] = useState(null);
   const [searchQuery,setSearchQuery] = useState("");
   const [locSorts,setLocSorts]     = useState({});
@@ -5008,7 +5019,7 @@ function App() {
     // so a failed/partial import can be rolled back from Settings.
     try{
       const preImportPayload={version:2,exportedAt:new Date().toISOString(),settings,locations,locationMeta,crops,todos,nutrients,cropNames,varieties,containerSizes};
-      localStorage.setItem(`garden:snapshot:${userId}`,JSON.stringify({savedAt:new Date().toISOString(),payload:preImportPayload}));
+      localStorage.setItem(`${LS_NS}snapshot:${userId}`,JSON.stringify({savedAt:new Date().toISOString(),payload:preImportPayload}));
     }catch(snapErr){console.warn("Pre-import snapshot failed:",snapErr);}
     const overlay=document.createElement("div");
     overlay.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(14,21,14,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:Figtree,sans-serif;";
@@ -5758,7 +5769,11 @@ function App() {
               (c.seedDate&&c.seedDate<`${yr+1}-01-01`&&(!c.archived||(c.stageHistory||[]).some(s=>s.date&&s.date.startsWith(`${yr}-`)))));
             const activeDuringYear=crops.filter(c=>c.seedDate&&c.seedDate<`${yr+1}-01-01`);
             const startedThisYear=crops.filter(c=>c.seedDate&&inYear(c.seedDate)).length;
-            const lostThisYear=crops.filter(c=>c.stage==="Lost"&&(c.stageHistory||[]).some(s=>s.stage==="Lost"&&inYear(s.date))).length;
+            // Lost crops: by the Lost stage date, or by start date when no Lost stage entry was recorded
+            const isLostThisYear=c=>c.stage==="Lost"&&((c.stageHistory||[]).some(s=>s.stage==="Lost")
+              ?(c.stageHistory||[]).some(s=>s.stage==="Lost"&&inYear(s.date))
+              :!!(c.seedDate&&inYear(c.seedDate)));
+            const lostThisYear=crops.filter(isLostThisYear).length;
             // Crops archived (Done or Lost) with their final stage change in this year
             const archivedThisYear=crops.filter(c=>c.archived&&(c.stageHistory||[]).length&&inYear(c.stageHistory[c.stageHistory.length-1].date));
             // Water logs this year
@@ -5785,6 +5800,36 @@ function App() {
             });
             const harvestRows=Object.values(harvestByKey).sort((a,b)=>b.total-a.total);
             const totalHarvestLogs=harvestRows.reduce((n,r)=>n+r.count,0);
+            // ── Rule-based recap (no AI): pulls highlights and lessons from end-of-crop notes ──
+            const startedList=crops.filter(c=>c.seedDate&&inYear(c.seedDate));
+            const stillGrowing=startedList.filter(c=>!c.archived).length;
+            const lostOfStarted=startedList.filter(c=>c.stage==="Lost").length;
+            const madeItPct=startedList.length?Math.round(100*(1-lostOfStarted/startedList.length)):null;
+            const cropLabel=c=>c.variety?`${c.name} (${c.variety})`:c.name;
+            const sentences=t=>(t||"").replace(/\s+/g," ").trim().split(/(?<=[.!?])\s+/).filter(Boolean);
+            const clip=t=>t.length>170?t.slice(0,167).trimEnd()+"…":t;
+            // Group identical crop+note rows (e.g. two pots of the same bean) so they show once with ×N
+            const groupRows=rows=>{const m=new Map();rows.forEach(r=>{const k=r.label+"::"+r.text;if(m.has(k))m.get(k).n++;else m.set(k,{...r,n:1});});return [...m.values()];};
+            const lostRows=groupRows(crops.filter(isLostThisYear)
+              .map(c=>({c,label:cropLabel(c),text:clip(sentences(c.finalNote)[0]||""),sub:c.seedDate?`Started ${fmtDate(c.seedDate)}`:""})));
+            const finishedThisYear=archivedThisYear.filter(c=>c.stage!=="Lost");
+            const GOOD_RE=/grew well|grow well|productive|delicious|impressive|great|tasty|loved|best|did well|good (amount|harvest|yield)/i;
+            const LESSON_RE=/next (time|year|season)|earlier|later|don[’']?t|do not|too (many|much|close|thick|small)|thin|spac|instead|should|would try|consider/i;
+            const pickSentence=(c,re)=>{const hit=sentences(c.finalNote).find(x=>re.test(x));return hit?clip(hit):null;};
+            // A "went well" sentence must be positive and not also a lesson or a negation
+            const pickGood=c=>{const hit=sentences(c.finalNote).find(x=>GOOD_RE.test(x)&&!LESSON_RE.test(x)&&!/n[’']t|\bnot\b|\bnever\b/i.test(x));return hit?clip(hit):null;};
+            const wentWell=groupRows(finishedThisYear.map(c=>({c,label:cropLabel(c),text:pickGood(c)})).filter(r=>r.text));
+            const lessons=groupRows(finishedThisYear.map(c=>({c,label:cropLabel(c),text:pickSentence(c,LESSON_RE)})).filter(r=>r.text));
+            // Care highlights
+            const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+            const waterByMonth=Array(12).fill(0);
+            crops.forEach(c=>(c.waterLog||[]).forEach(w=>{if(!w.auto&&inYear(w.date))waterByMonth[Number(w.date.slice(5,7))-1]++;}));
+            const peakWaterMonth=waterByMonth.some(n=>n>0)?waterByMonth.indexOf(Math.max(...waterByMonth)):null;
+            const nutrientCounts={};
+            crops.forEach(c=>(c.feedLog||[]).filter(f=>inYear(f.date)&&f.nutrient).forEach(f=>{
+              const k=f.nutrient.trim().toLowerCase();if(!nutrientCounts[k])nutrientCounts[k]={name:f.nutrient.trim(),n:0};nutrientCounts[k].n++;}));
+            const topNutrients=Object.values(nutrientCounts).sort((a,b)=>b.n-a.n).slice(0,2);
+            const finishedNoHarvest=finishedThisYear.filter(c=>!(c.harvests||[]).length).length;
             // Stats for inline card preview
             const hasAnyData=startedThisYear>0||totalWaterings>0||totalFeedings>0||totalHarvestLogs>0;
             if(!hasAnyData) return null;
@@ -5862,6 +5907,66 @@ function App() {
                           ))}
                         </div>
 
+                        {/* Season at a glance */}
+                        {startedList.length>0&&(
+                          <div style={{fontSize:"0.84rem",color:"rgba(232,245,233,0.65)",lineHeight:1.5,background:"rgba(34,197,94,0.07)",border:"1px solid rgba(34,197,94,0.15)",borderRadius:"12px",padding:"10px 13px"}}>
+                            {madeItPct!==null&&<><span style={{fontWeight:700,color:"rgba(134,239,172,0.9)"}}>{madeItPct}%</span> of the {startedList.length} crops you started made it. </>}
+                            {stillGrowing>0&&<>{stillGrowing} {stillGrowing===1?"is":"are"} still growing.</>}
+                          </div>
+                        )}
+
+                        {wentWell.length>0&&(
+                          <div>
+                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>What went well</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                              {wentWell.map((r,i)=>(
+                                <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",borderLeft:"3px solid rgba(134,239,172,0.55)"}}>
+                                  <div style={{fontSize:"1rem",flexShrink:0,lineHeight:1.3}}>{cropEmoji(r.c)}</div>
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:"0.84rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>{r.label}{r.n>1&&<span style={{fontWeight:500,color:"rgba(232,245,233,0.4)"}}> ×{r.n}</span>}</div>
+                                    {r.text&&<div style={{fontSize:"0.78rem",color:"rgba(232,245,233,0.55)",fontStyle:"italic",marginTop:2,lineHeight:1.4}}>"{r.text}"</div>}
+                                    {null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {lostRows.length>0&&(
+                          <div>
+                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Lost this year</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                              {lostRows.map((r,i)=>(
+                                <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",borderLeft:"3px solid #f87171"}}>
+                                  <div style={{fontSize:"1rem",flexShrink:0,lineHeight:1.3}}>{cropEmoji(r.c)}</div>
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:"0.84rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>{r.label}{r.n>1&&<span style={{fontWeight:500,color:"rgba(232,245,233,0.4)"}}> ×{r.n}</span>}</div>
+                                    {r.text&&<div style={{fontSize:"0.78rem",color:"rgba(232,245,233,0.55)",fontStyle:"italic",marginTop:2,lineHeight:1.4}}>"{r.text}"</div>}
+                                    {r.sub&&<div style={{fontSize:"0.7rem",color:"rgba(232,245,233,0.3)",marginTop:2}}>{r.sub}</div>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {lessons.length>0&&(
+                          <div>
+                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Notes for next season</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                              {lessons.map((r,i)=>(
+                                <div key={i} style={{display:"flex",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.04)",borderRadius:"10px",borderLeft:"3px solid #fbbf24"}}>
+                                  <div style={{fontSize:"1rem",flexShrink:0,lineHeight:1.3}}>{cropEmoji(r.c)}</div>
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:"0.84rem",fontWeight:600,color:"rgba(232,245,233,0.88)"}}>{r.label}{r.n>1&&<span style={{fontWeight:500,color:"rgba(232,245,233,0.4)"}}> ×{r.n}</span>}</div>
+                                    {r.text&&<div style={{fontSize:"0.78rem",color:"rgba(232,245,233,0.55)",fontStyle:"italic",marginTop:2,lineHeight:1.4}}>"{r.text}"</div>}
+                                    {null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* View archived crops for this year */}
                         {archivedThisYear.length>0&&(
                           <button onClick={()=>setShowArchivedYear(summaryYear)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"12px",padding:"12px 14px",cursor:"pointer"}}>
@@ -5895,6 +6000,23 @@ function App() {
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        )}
+
+                        {/* Care highlights */}
+                        {(totalWaterings>0||totalFeedings>0||totalRainDays>0)&&(
+                          <div>
+                            <div style={{fontSize:"0.62rem",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(134,239,172,0.5)",marginBottom:8}}>Care highlights</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:5,fontSize:"0.82rem",color:"rgba(232,245,233,0.7)",background:"rgba(255,255,255,0.04)",borderRadius:"10px",padding:"10px 12px",lineHeight:1.45}}>
+                              {totalWaterings>0&&<div>💧 {totalWaterings} hand waterings{peakWaterMonth!==null&&<>, busiest in {MONTHS[peakWaterMonth]} ({waterByMonth[peakWaterMonth]})</>}</div>}
+                              {totalRainDays>0&&<div>🌧 Rain covered {totalRainDays} day{totalRainDays!==1?"s":""}</div>}
+                              {totalFeedings>0&&<div>🧪 {totalFeedings} feedings{topNutrients.length>0&&<>, mostly {topNutrients.map(n=>n.name).join(" and ")}</>}</div>}
+                            </div>
+                            {finishedNoHarvest>0&&(
+                              <div style={{fontSize:"0.72rem",color:"rgba(232,245,233,0.35)",marginTop:6,lineHeight:1.4}}>
+                                {finishedNoHarvest} of {finishedThisYear.length} crops finished this year have no harvests logged. Logging harvests makes this summary more complete.
+                              </div>
+                            )}
                           </div>
                         )}
 
